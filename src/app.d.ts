@@ -8,6 +8,12 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	class LanguageModel {
+		static async create(config: { initialPrompts: { role: string; content: string }[] }): Promise<LanguageModel>;
+		async prompt(message: string): Promise<string>;
+		async promptStreaming(message: string): ReadableStream;
+	}
 }
 
 export {};

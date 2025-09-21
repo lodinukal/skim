@@ -2,6 +2,7 @@
 	let wpm = $state(300);
 	let currentWordIndex = $state(0);
 	let text = $state('');
+	let prompt = $state('');
 	let words = $derived(
 		text
 			.trim()
@@ -79,6 +80,48 @@
 		}
 	});
 
+	// Language model is defined in chrome-types/index.d.ts --- IGNORE ---
+
+	if (typeof LanguageModel === 'undefined') {
+	}
+
+	const session =
+		typeof LanguageModel === 'undefined'
+			? Promise.reject()
+			: LanguageModel.create({
+					initialPrompts: [
+						{
+							role: 'system',
+							content:
+								'You only ever output plain alphanumeric characters, no stars. You are a knowledgeable assistant who will give correct answers.'
+						}
+					]
+				});
+
+	let languageModelAvailable = $state(false);
+
+	session
+		.then(() => {
+			languageModelAvailable = true;
+		})
+		.catch(() => {
+			languageModelAvailable = false;
+		});
+
+	async function promptSession() {
+		if (prompt.trim().length === 0) return;
+		text = '';
+
+		const stream = (await session).promptStreaming(prompt);
+		for await (const chunk of stream as any) {
+			let strippedChunk = chunk.replace(/[^a-zA-Z0-9.\s]/g, '');
+			// strippedChunk = strippedChunk.replace(/\s+/g, ' ');
+			strippedChunk = strippedChunk.replace(/\n+$/, '');
+			if (strippedChunk.length === 0) continue;
+			text += strippedChunk;
+		}
+	}
+
 	$effect(() => {
 		let _ = text;
 		currentWordIndex = currentWordIndex >= words.length ? words.length - 1 : currentWordIndex;
@@ -94,6 +137,11 @@
 	<input type="range" id="wpm" min="10" max="1000" bind:value={wpm} />
 	<input type="number" min="10" max="1000" bind:value={wpm} />
 </div>
+
+{#if languageModelAvailable}
+	<textarea rows="10" cols="50" placeholder="Prompt" bind:value={prompt}></textarea>
+	<button onclick={promptSession}>Enter</button>
+{/if}
 
 <textarea rows="10" cols="50" placeholder="Paste text here..." bind:value={text}></textarea>
 
