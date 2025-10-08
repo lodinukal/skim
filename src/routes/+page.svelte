@@ -1,14 +1,27 @@
 <script lang="ts">
+	import { segment } from '$lib/tiny_segment';
+
 	let wpm = $state(300);
 	let currentWordIndex = $state(0);
 	let text = $state('');
+	type Language = 'en' | 'jp';
+
+	let language: Language = $state('en');
 	let prompt = $state('');
-	let words = $derived(
-		text
+
+	function splitText(text: string, language: Language): string[] {
+		if (language === 'jp') {
+			return segment(text)
+				.map((s) => s.trim())
+				.filter((s) => s.length > 0);
+		}
+		return text
 			.trim()
 			.split(/\s+/)
-			.filter((word) => word.length > 0)
-	);
+			.filter((word) => word.length > 0);
+	}
+
+	let words = $derived(splitText(text, language));
 	let isPlaying = $state(false);
 	let intervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -24,11 +37,16 @@
 				wpm = parsedWpm;
 			}
 		}
+		const savedLanguage = localStorage.getItem('skim-language');
+		if (savedLanguage === 'en' || savedLanguage === 'jp') {
+			language = savedLanguage;
+		}
 	}
 
 	$effect(() => {
 		localStorage.setItem('skim-text', text);
 		localStorage.setItem('skim-wpm', wpm.toString());
+		localStorage.setItem('skim-language', language);
 	});
 
 	function startReading() {
@@ -102,7 +120,7 @@
 
 	session
 		.then(() => {
-			languageModelAvailable = true;
+			// languageModelAvailable = true;
 		})
 		.catch(() => {
 			languageModelAvailable = false;
@@ -142,6 +160,11 @@
 	<textarea rows="10" cols="50" placeholder="Prompt" bind:value={prompt}></textarea>
 	<button onclick={promptSession}>Enter</button>
 {/if}
+<label for="language">Language</label>
+<select id="language" bind:value={language}>
+	<option value="en">English</option>
+	<option value="jp">Japanese</option>
+</select>
 
 <textarea rows="10" cols="50" placeholder="Paste text here..." bind:value={text}></textarea>
 
